@@ -1,0 +1,120 @@
+#import PIL
+#import PIL.Image
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras import layers
+from tensorflow.keras.callbacks import TensorBoard
+from tensorflow import keras
+from tensorflow.keras.models import load_model
+import tensorflow as tf
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+import datetime
+
+#import Augmentor
+
+dataset_url = "C:/Users/ASUS/Desktop/MLAssessment2/ML/NN/Data"
+batch = 10
+num_classes = 5
+
+#p = Augmentor.Pipeline("C:/Users/ASUS/Desktop/MLAssessment2/ML/NN/Data/NN/Data/")
+#p.rotate(probability=0.7, max_left_rotation=10, max_right_rotation=10)
+#p.zoom(probability=0.3, min_factor=1.1, max_factor=1.6)
+#p.sample(10000)
+
+datagen = ImageDataGenerator(width_shift_range=0.1,
+                        height_shift_range=0.1,
+                        rotation_range=10,
+                        shear_range=0.1,
+                        zoom_range=0.1,
+                        horizontal_flip=True,
+                        vertical_flip=False,
+                        validation_split=0.2,
+                        rescale= 1/255)
+
+training_dataset = datagen.flow_from_directory(dataset_url,
+                                              color_mode="rgb",
+                                              target_size=(227,227),
+                                              shuffle=True,
+                                              class_mode="categorical",
+                                              subset='training',
+                                              batch_size=batch,
+                                              save_to_dir=None)
+
+validation_dataset = datagen.flow_from_directory(dataset_url,
+                                              color_mode="rgb",
+                                              target_size=(227,227),
+                                              shuffle=True,
+                                              class_mode="categorical",
+                                              subset='training',
+                                              batch_size=batch,
+                                              save_to_dir=None)
+
+#Nural Network
+
+input = layers.Input(shape(227,227,3))
+x = layers.conv2D(96,(11,11), activation='relu', padding='valid', strides=4)(input)
+x = MaxPooling2D((3,3), strides=(2,2), padding='valid')(x)
+x = layers.conv2D(256,(5,5), activation='relu', padding='valid', strides=1)(x)
+x = MaxPooling2D((3,3), strides=(2,2), padding='valid')(x)
+x = layers.conv2D(384,(3,3), activation='relu', padding='valid', strides=1)(x)
+x = MaxPooling2D((3,3), strides=(2,2), padding='valid')(x)
+x = layers.conv2D(256,(3,3), activation='relu', padding='valid', strides=1)(x)
+x = MaxPooling2D((3,3), strides=(2,2), padding='valid')(x)
+x = layers.flatten()(x)
+
+#dense layers
+x = layers.Dense(units=4069, activation='relu')(x)
+x = layers.Dense(units=4069, activation='relu')(x)
+net = layers.Dense(units=num_classes, activation='softmax')(x)
+
+model= keras.Model(input,net)
+chkpoint_path="C:/Users/ASUS/Desktop/MLAssessment2/ML/NN/chkpoint"
+
+cp_callback = tf.keras.callBackModelCheckpoint(
+    checkpoint_path,monitors='loss', verbose=1, save_best_only=True, mode='auto', period=5)
+
+opt = keras.Optimizers.Adam(learning_rate=0.001)
+model.compile(optimizer=opt, loss='categorical_crosscentropy', metrics=['accuracy'])
+
+model.summary()
+
+# Training data
+
+log_dir= "C:/Users/ASUS/Desktop/MLAssessment2/ML/NN/logs"+datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+tensorflow.callback=tf.keras.callbacks.TensorBoard(log_dir=log_dir)
+callback_list = [tensorBoard_callback]
+
+train_num = training_dataset.samples
+valid_num = validation_dataset.samples
+
+model.fit(training_dataset,
+         epochs=500,
+         steps_per_epoch=train_num//batch,
+         validation_dataset = validation_dataset,
+         validation_steps = valid_num//batch,
+         callbacks=callback_list,
+         verbose = 1)
+ # Predicting 
+
+class_names = ['ECG Images of Patient that have History of MI (203)',
+               'Normal Person ECG Images (859)',
+               'ECG Images of COVID-19 Patients (250)',
+               'ECG Images of Patient that have abnormal heart beats (548)',
+               'ECG Images of Myocardial Infarction Patients (77)']
+x_valid, label_batch = next(iter(validation_dataset))
+prediction_values = model_predict(x_valid)
+
+fig = plt.figure(figsize=(10,6))
+fig.subplots_adjust(left=0, right=1,bottom=0,top=1,hspace=0.05, wspace=0.05)
+
+for i in range(8):
+    ax = fig.add_subplot(3,4,i+1,xticks=[],yticks=[])
+    ax.imshow(x_valid[i,:],cmap=plt.cm.grey._r,interpolation='nearest')
+    prediction = np.argmax(prediction_values[i])
+    if prediction == np.argmax(label_batch[i]):
+        ax.text(3,17,class_names[prediction], color='blue', fontsize=14)
+    else:
+        ax.text(3,17,class_names[prediction], color='red', fontsize=14)
+        
+        
